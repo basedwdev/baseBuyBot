@@ -1,5 +1,5 @@
 import { WebSocketProvider, FallbackProvider } from 'ethers';
-import { logger } from '../logger.js';
+import { logger } from '../../logger.js';
 
 /**
  * Probes every RPC URL and returns a provider backed by all live nodes.
@@ -32,8 +32,8 @@ export async function getProvider(urls) {
                 provider.websocket.on('close', (code) => {
                     clearInterval(pingInterval);
                     logger.error(`WebSocket closed for ${url} (code ${code}), terminating process to trigger Docker restart.`, { component: 'provider' });
-                    // In a containerized environment, crashing ungracefully and letting 
-                    // Docker `restart: unless-stopped` handle the exact state rebuild 
+                    // In a containerized environment, crashing ungracefully and letting
+                    // Docker `restart: unless-stopped` handle the exact state rebuild
                     // is far safer than trying to hot-swap a FallbackProvider mid-flight.
                     process.exit(1);
                 });
@@ -55,7 +55,7 @@ export async function getProvider(urls) {
         }
     }
 
-    if (live.length === 0) throw new Error('All RPC providers failed. Check your RPC_PROVIDERS env var.');
+    if (live.length === 0) throw new Error('All RPC providers failed. Check your BASE_RPC_PROVIDERS env var.');
     if (live.length === 1) return live[0];
 
     logger.info(`Using FallbackProvider with ${live.length} live RPC(s)`, { component: 'provider' });

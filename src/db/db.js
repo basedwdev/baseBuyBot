@@ -28,10 +28,20 @@ export class Database {
                 baseTokenAddress   TEXT NOT NULL,
                 memeTokenDecimals  INTEGER NOT NULL,
                 baseTokenDecimals  INTEGER NOT NULL,
-                lastBoughtAt       INTEGER NOT NULL
+                lastBoughtAt       INTEGER NOT NULL,
+                chain              TEXT NOT NULL DEFAULT 'base'
             );
             CREATE INDEX IF NOT EXISTS idx_lastBoughtAt ON tokensDB(lastBoughtAt);
+            CREATE INDEX IF NOT EXISTS idx_chain ON tokensDB(chain);
         `);
+
+        // Migrate existing databases that pre-date the chain column.
+        const cols = this.db.pragma('table_info(tokensDB)').map(c => c.name);
+        if (!cols.includes('chain')) {
+            this.db.exec(`ALTER TABLE tokensDB ADD COLUMN chain TEXT NOT NULL DEFAULT 'base'`);
+            logger.info('Migrated tokensDB: added chain column (defaulted to \'base\')', { component: 'db' });
+        }
+
         logger.info('tokensDB table ready', { component: 'db' });
     }
 
@@ -42,16 +52,17 @@ export class Database {
      * @param {string} baseTokenAddress
      * @param {number} memeTokenDecimals
      * @param {number} baseTokenDecimals
+     * @param {string} [chain='base']   - 'base' | 'sol'
      */
-    upsert(pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals) {
+    upsert(pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals, chain = 'base') {
         const stmt = this.db.prepare(`
             INSERT OR REPLACE INTO tokensDB
-                (pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals, lastBoughtAt)
+                (pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals, lastBoughtAt, chain)
             VALUES
-                (?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?)
         `);
-        stmt.run(pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals, Date.now());
-        logger.info(`upserted pair ${pair}`, { component: 'db' });
+        stmt.run(pair, memeTokenAddress, baseTokenAddress, memeTokenDecimals, baseTokenDecimals, Date.now(), chain);
+        logger.info(`upserted pair ${pair} (chain: ${chain})`, { component: 'db' });
     }
 
     /**
@@ -64,10 +75,14 @@ export class Database {
     }
 
     /**
-     * Returns all tracked pairs.
+     * Returns tracked pairs, optionally filtered by chain.
+     * @param {string} [chain]  - 'base' | 'sol' | undefined (all chains)
      * @returns {Array<object>}
      */
-    getAll() {
+    getAll(chain) {
+        if (chain) {
+            return this.db.prepare('SELECT * FROM tokensDB WHERE chain = ?').all(chain);
+        }
         return this.db.prepare('SELECT * FROM tokensDB').all();
     }
 
@@ -82,10 +97,14 @@ export class Database {
 
     /**
      * Returns pairs whose lastBoughtAt is older than the given cutoff.
-     * @param {number} cutoffMs  e.g. Date.now() - stalePairThresholdMs
+     * @param {number} cutoffMs  - e.g. Date.now() - stalePairThresholdMs
+     * @param {string} [chain]   - 'base' | 'sol' | undefined (all chains)
      * @returns {Array<object>}
      */
-    getStale(cutoffMs) {
+    getStale(cutoffMs, chain) {
+        if (chain) {
+            return this.db.prepare('SELECT * FROM tokensDB WHERE lastBoughtAt <= ? AND chain = ?').all(cutoffMs, chain);
+        }
         return this.db.prepare('SELECT * FROM tokensDB WHERE lastBoughtAt <= ?').all(cutoffMs);
     }
 

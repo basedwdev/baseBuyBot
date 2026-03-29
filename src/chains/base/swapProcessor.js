@@ -1,5 +1,5 @@
-import { sqrtX96ToPrice, getHighestTransferAmount } from '../blockchain/priceCalc.js';
-import { logger } from '../logger.js';
+import { sqrtX96ToPrice, getHighestTransferAmount } from './priceCalc.js';
+import { logger } from '../../logger.js';
 
 /**
  * Determines whether a swap event represents a buy.
@@ -42,7 +42,7 @@ async function fetchBuyerBalance(contract, buyer, fallback, onError) {
         return balance === 0n ? fallback : balance;
     } catch (err) {
         logger.error(`balanceOf failed for ${buyer}: ${err.message}`, { component: 'swapProcessor' });
-        await onError?.(err, { context: 'balanceOf', buyer });   // S3
+        await onError?.(err, { context: 'balanceOf', buyer });
         return fallback;
     }
 }
@@ -77,8 +77,8 @@ function fmt(raw, decimals, fixed = 3) {
  * @param {number} ctx.tokenOrdering   - 0 or 1
  * @param {object} ctx.provider        - ethers JsonRpcProvider
  * @param {object} ctx.memeContract    - ethers Contract (meme token, balanceOf ABI)
- * @param {number} [ctx.minAmountReceived=0.01]  - S5: now driven from config
- * @param {function} [ctx.onError]     - S3: optional (err, meta) => void for error channel
+ * @param {number} [ctx.minAmountReceived=0.01]  - driven from config
+ * @param {function} [ctx.onError]     - optional (err, meta) => void for error channel
  * @returns {Promise<object|null>}
  */
 export async function processSwapEvent(event, ctx) {
@@ -87,7 +87,7 @@ export async function processSwapEvent(event, ctx) {
         memeDecimals, baseDecimals, tokenOrdering,
         provider, memeContract,
         minAmountReceived = 0.01,
-        onError,                    // S3
+        onError,
     } = ctx;
 
     const { amount0, amount1, sqrtPriceX96 } = event.args;
@@ -107,10 +107,10 @@ export async function processSwapEvent(event, ctx) {
         actualAmount = getHighestTransferAmount(receipt.logs, pairAddress, rawTokenBought);
     } catch (err) {
         logger.error(`getTransactionReceipt failed for ${txHash}: ${err.message}`, { component: 'swapProcessor' });
-        await onError?.(err, { context: 'getTransactionReceipt', txHash });  // S3
+        await onError?.(err, { context: 'getTransactionReceipt', txHash });
     }
 
-    const userBalance = await fetchBuyerBalance(memeContract, buyer, actualAmount, onError);  // S3
+    const userBalance = await fetchBuyerBalance(memeContract, buyer, actualAmount, onError);
 
     const isToken0 = tokenOrdering === 0;
     const tokenPrice = sqrtX96ToPrice(sqrtPriceX96, -memeDecimals, -baseDecimals, isToken0);

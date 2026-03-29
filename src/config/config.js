@@ -25,12 +25,23 @@ function num(key, defaultVal) {
 }
 
 export const config = Object.freeze({
-    rpcProviders: required('RPC_PROVIDERS').split(',').map(s => s.trim()).filter(Boolean),
+    chains: {
+        base: {
+            rpcProviders: required('BASE_RPC_PROVIDERS').split(',').map(s => s.trim()).filter(Boolean),
+        },
+        sol: {
+            // Optional until Solana tracking is enabled.
+            rpcUrl: process.env.SOL_RPC_URL || '',
+        },
+    },
 
     redis: {
         url: required('REDIS_URL'),
         channels: {
-            tokenActions: required('REDIS_CHANNEL_TOKEN_ACTIONS'),
+            tokenActions: {
+                base: required('REDIS_CHANNEL_BASE_TOKEN_ACTIONS'),
+                sol: required('REDIS_CHANNEL_SOL_TOKEN_ACTIONS'),
+            },
             buys: required('REDIS_CHANNEL_BUYS'),
             info: required('REDIS_CHANNEL_INFO'),
             errors: required('REDIS_CHANNEL_ERRORS'),
